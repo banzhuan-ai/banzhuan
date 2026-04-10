@@ -246,7 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     auth_clear.set_defaults(func=cmd_auth_clear)
 
     builder = sub.add_parser("builder-chat", help="Send a Builder AI prompt and update a local graph file")
-    builder.add_argument("--exchange", choices=("hype", "edge"), default="hype")
+    builder.add_argument("--exchange", choices=("hype", "edge", "poly", "afp"), default="hype")
     builder.add_argument("--base-url", help="Override the executor base URL")
     builder.add_argument("--session-token", help="Override stored or environment session token")
     builder.add_argument("--message", required=True, help="Builder prompt")
@@ -263,7 +263,7 @@ def build_parser() -> argparse.ArgumentParser:
     builder.set_defaults(func=cmd_builder_chat)
 
     backtest = sub.add_parser("backtest", help="Run a backtest against a Builder graph")
-    backtest.add_argument("--exchange", choices=("hype", "edge"), default="hype")
+    backtest.add_argument("--exchange", choices=("hype", "edge", "poly", "afp"), default="hype")
     backtest.add_argument("--base-url", help="Override the executor base URL")
     backtest.add_argument("--session-token", help="Override stored or environment session token")
     backtest.add_argument("--graph", required=True, help="Builder graph JSON file")
@@ -283,7 +283,7 @@ def build_parser() -> argparse.ArgumentParser:
     backtest.set_defaults(func=cmd_backtest)
 
     publish = sub.add_parser("publish", help="Create or update a strategy from a Builder graph")
-    publish.add_argument("--exchange", choices=("hype", "edge"), default="hype")
+    publish.add_argument("--exchange", choices=("hype", "edge", "poly", "afp"), default="hype")
     publish.add_argument("--base-url", help="Override the executor base URL")
     publish.add_argument("--session-token", help="Override stored or environment session token")
     publish.add_argument("--graph", required=True, help="Builder graph JSON file")

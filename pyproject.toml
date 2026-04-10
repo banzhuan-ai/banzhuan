@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "banzhuan"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python SDK for BanZhuan.AI Builder, research, backtests, and strategy management."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,7 +13,7 @@ authors = [{ name = "BanZhuan.AI" }]
 dependencies = [
   "requests>=2.31.0,<3",
 ]
-keywords = ["banzhuan", "trading", "builder", "ai", "hyperliquid", "edgex"]
+keywords = ["banzhuan", "trading", "builder", "ai", "hyperliquid", "edgex", "polymarket", "afp"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

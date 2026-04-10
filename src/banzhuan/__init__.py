@@ -32,4 +32,4 @@ __all__ = [
     "save_stored_session_token",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

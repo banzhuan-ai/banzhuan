@@ -2,8 +2,10 @@
 
 Python SDK for BanZhuan.AI Builder, AI Chat, backtests, research, drafts, and strategy publishing on:
 
-- `https://hype.banzhuan.ai`
-- `https://edge.banzhuan.ai`
+- `https://hype.banzhuan.ai` (Hyperliquid perps)
+- `https://edge.banzhuan.ai` (EdgeX perps)
+- `https://poly.banzhuan.ai` (Polymarket prediction markets)
+- `https://afp.banzhuan.ai` (Autonity AFP)
 
 This package is designed for automation and agent workflows. It uses the same production session token model as the website.
 
@@ -37,6 +39,7 @@ export BANZHUAN_SESSION_TOKEN=<your-session-token>
 ```python
 from banzhuan import BanzhuanClient, build_perps_risk_config
 
+# exchange can be "hype", "edge", "poly", or "afp"
 client = BanzhuanClient(exchange="hype", session_token="your-session-token")
 
 reply = client.builder_chat(
@@ -141,7 +144,9 @@ banzhuan publish \
 - A valid session token authenticates you as the wallet that created it.
 - Credits and invite-key checks still apply on production endpoints.
 - Research uses the current factor-ledger workflow. The legacy sweep-style `/research/run` path is not used.
-- This package focuses on Builder, research, backtests, drafts, and strategy management. Live session deployment can still be completed in the web app.
+- Builder AI Chat (`builder_chat()`, `wait_for_builder_job()`, `apply_builder_result()`) works across all four exchanges.
+- Backtest and strategy publishing methods use perps-specific formats on HYPE/EDGE. For POLY and AFP, use the Python API with exchange-specific payloads or the web UI.
+- Live session deployment can still be completed in the web app.
 
 ## License
 
