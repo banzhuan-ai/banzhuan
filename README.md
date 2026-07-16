@@ -1,13 +1,15 @@
 # banzhuan
 
-Python SDK for BanZhuan.AI Builder, AI Chat, backtests, research, drafts, and strategy publishing on:
+Python SDK for BanZhuan.AI backtests, factor research, market insights, strategy drafts, and strategy publishing on:
 
 - `https://hype.banzhuan.ai` (Hyperliquid perps)
-- `https://edge.banzhuan.ai` (EdgeX perps)
+- `https://edge.banzhuan.ai` (EdgeX perps) - deactivated July 5, 2026
 - `https://poly.banzhuan.ai` (Polymarket prediction markets)
-- `https://afp.banzhuan.ai` (Autonity AFP)
+- `https://afp.banzhuan.ai` (Autonity AFP) - deactivated July 5, 2026
 
 This package is designed for automation and agent workflows. It uses the same production session token model as the website.
+
+> Note (July 10, 2026): the one-to-one Builder AI chat API was retired and now returns HTTP 410. This affects `builder_chat()` and `save_chat_session()`. Its replacement is the Agent Society group chat on the website. Saved legacy chat sessions remain readable as an archive via `list_chat_sessions()` and `get_chat_session()`.
 
 ## Installation
 
@@ -37,26 +39,18 @@ export BANZHUAN_SESSION_TOKEN=<your-session-token>
 ## Quick Start
 
 ```python
+import json
+
 from banzhuan import BanzhuanClient, build_perps_risk_config
 
-# exchange can be "hype", "edge", "poly", or "afp"
+# exchange can be "hype" or "poly"; "edge" and "afp" target platforms
+# that were deactivated on July 5, 2026
 client = BanzhuanClient(exchange="hype", session_token="your-session-token")
 
-reply = client.builder_chat(
-    "Build a trend-following strategy for ETH-USD with a stop loss and cooldown",
-    current_graph=None,
-    conversation_history=[],
-    async_mode=True,
-    builder_run_config={
-        "market": "ETH-USD",
-        "lookbackDays": 14,
-        "initialCapital": 10_000,
-    },
-)
-
-job = client.wait_for_builder_job(reply["jobId"])
-result = job["result"]
-graph = client.apply_builder_result(None, result)
+# Load a Builder graph JSON file, for example one written by an earlier
+# `banzhuan builder-chat` run or fetched with client.get_strategy_graph(...)
+with open("graph.json", encoding="utf-8") as fh:
+    graph = json.load(fh)
 
 backtest = client.create_backtest(
     strategy_graph=graph,
@@ -68,13 +62,24 @@ backtest = client.create_backtest(
 
 final_backtest = client.wait_for_backtest(backtest["jobId"], include="result")
 print(final_backtest["result"]["summary"])
+
+# Publish the graph as a private strategy once the backtest looks good
+published = client.create_strategy(
+    name="ETH Trend",
+    description="Trend-following strategy for ETH-USD",
+    risk_tier="moderate",
+    supported_markets=["ETH-USD"],
+    visibility="private",
+    strategy_graph=graph,
+)
+print(published.get("strategyId"))
 ```
 
 ## What The SDK Covers
 
-- Builder AI chat: `POST /builder-chat`
-- Builder async job polling: `GET /builder-chat/jobs/:jobId`
-- Chat session persistence: `POST/GET/DELETE /builder-chat/sessions`
+- Builder AI chat: `POST /builder-chat` (retired July 10, 2026, now returns HTTP 410)
+- Builder async job polling: `GET /builder-chat/jobs/:jobId` (only used by the retired chat flow)
+- Chat sessions: `GET /builder-chat/sessions` reads saved legacy chats as an archive; the save endpoint (`POST /builder-chat/sessions`) returns HTTP 410
 - Strategy drafts: `POST/GET/DELETE /strategies/drafts`
 - Strategy publishing and versioning: `POST /strategies`, `POST /strategies/:id/versions`
 - Backtests: `POST /backtests`, `GET /backtests/:id`, `GET /backtests`
@@ -89,13 +94,13 @@ print(final_backtest["result"]["summary"])
 
 ## Builder Graphs
 
-Builder AI chat returns command deltas, not a fully materialized graph. This package includes a Python port of the production graph mutation logic so you can:
+The retired Builder AI chat returned command deltas, not a fully materialized graph. This package still includes a Python port of the production graph mutation logic (`apply_builder_commands()`), so you can:
 
-- send a prompt
-- receive Builder commands
-- apply them locally
-- save the graph
+- replay archived Builder command deltas against a graph
+- save the resulting graph
 - backtest or publish the graph later
+
+You can also fetch an existing graph with `get_strategy_graph()` or through a saved draft (`get_draft()`), then backtest or republish it with `create_backtest()`, `create_strategy()`, or `publish_strategy_version()`.
 
 ## CLI
 
@@ -107,7 +112,9 @@ The CLI is intentionally small and focused on session-token workflows.
 banzhuan auth set <your-session-token>
 ```
 
-### Run a Builder prompt against a graph file
+### Run a Builder prompt against a graph file (retired)
+
+The `builder-chat` command depends on the retired Builder AI chat API and now fails with HTTP 410 (retired July 10, 2026). It is kept here for reference only.
 
 ```bash
 banzhuan builder-chat \
@@ -144,8 +151,9 @@ banzhuan publish \
 - A valid session token authenticates you as the wallet that created it.
 - Credits and invite-key checks still apply on production endpoints.
 - Research uses the current factor-ledger workflow. The legacy sweep-style `/research/run` path is not used.
-- Builder AI Chat (`builder_chat()`, `wait_for_builder_job()`, `apply_builder_result()`) works across all four exchanges.
-- Backtest and strategy publishing methods use perps-specific formats on HYPE/EDGE. For POLY and AFP, use the Python API with exchange-specific payloads or the web UI.
+- Builder AI Chat was retired on July 10, 2026: `builder_chat()` and `save_chat_session()` now receive HTTP 410. The replacement is the Agent Society group chat on the website. `apply_builder_result()` and `apply_builder_commands()` remain available for replaying archived Builder command deltas.
+- Backtest and strategy publishing methods use perps-specific formats on HYPE. For POLY, use the Python API with exchange-specific payloads or the web UI.
+- The `edge` and `afp` exchange values point at platforms that were deactivated on July 5, 2026. The SDK still accepts them for compatibility, but their APIs no longer serve SDK requests (EDGE returns a static 503).
 - Live session deployment can still be completed in the web app.
 
 ## License
