@@ -1,15 +1,21 @@
 # banzhuan
 
-Python SDK for BanZhuan.AI backtests, factor research, market insights, strategy drafts, and strategy publishing on:
+Python SDK and CLI for current BanZhuan.AI backtest, research, strategy, and
+market-insight APIs. The package is designed for production automation and
+agent workflows.
 
-- `https://hype.banzhuan.ai` (Hyperliquid perps)
-- `https://edge.banzhuan.ai` (EdgeX perps) - deactivated July 5, 2026
-- `https://poly.banzhuan.ai` (Polymarket prediction markets)
-- `https://afp.banzhuan.ai` (Autonity AFP) - deactivated July 5, 2026
+## Production Target Matrix
 
-This package is designed for automation and agent workflows. It uses the same production session token model as the website.
+| Target | Production state | SDK status |
+|--------|------------------|------------|
+| HYPE | Active | Primary target for drafts, strategy management, backtests, factor-ledger research, and market insights |
+| POLY | Active | Partial common-client support: backtests and most factor-ledger operations are available; Builder and strategy behavior is exchange-specific |
+| Alpha | Active | Not an SDK exchange target; Agent Society is operated through the product UI |
+| EDGE | Deactivated July 5, 2026 | Identifier retained for compatibility only; no current production API support |
+| AFP | Deactivated July 5, 2026 | Identifier retained for compatibility only; no current production API support |
 
-> Note (July 10, 2026): the one-to-one Builder AI chat API was retired and now returns HTTP 410. This affects `builder_chat()` and `save_chat_session()`. Its replacement is the Agent Society group chat on the website. Saved legacy chat sessions remain readable as an archive via `list_chat_sessions()` and `get_chat_session()`.
+An accepted exchange name does not guarantee feature parity. Use the
+capability matrix below before building an integration.
 
 ## Installation
 
@@ -38,123 +44,68 @@ export BANZHUAN_SESSION_TOKEN=<your-session-token>
 
 ## Quick Start
 
+After configuring the production session token as described above:
+
 ```python
-import json
+from banzhuan import BanzhuanClient
 
-from banzhuan import BanzhuanClient, build_perps_risk_config
-
-# exchange can be "hype" or "poly"; "edge" and "afp" target platforms
-# that were deactivated on July 5, 2026
-client = BanzhuanClient(exchange="hype", session_token="your-session-token")
-
-# Load a Builder graph JSON file, for example one written by an earlier
-# `banzhuan builder-chat` run or fetched with client.get_strategy_graph(...)
-with open("graph.json", encoding="utf-8") as fh:
-    graph = json.load(fh)
-
-backtest = client.create_backtest(
-    strategy_graph=graph,
-    start_ms=client.days_ago_ms(14),
-    end_ms=client.now_ms(),
-    initial_capital=10_000,
-    risk_config=build_perps_risk_config(10_000, "ETH-USD"),
-)
-
-final_backtest = client.wait_for_backtest(backtest["jobId"], include="result")
-print(final_backtest["result"]["summary"])
-
-# Publish the graph as a private strategy once the backtest looks good
-published = client.create_strategy(
-    name="ETH Trend",
-    description="Trend-following strategy for ETH-USD",
-    risk_tier="moderate",
-    supported_markets=["ETH-USD"],
-    visibility="private",
-    strategy_graph=graph,
-)
-print(published.get("strategyId"))
+client = BanzhuanClient(exchange="hype")
+result = client.list_backtests(limit=5)
+print(result)
 ```
 
-## What The SDK Covers
+## Capability Matrix
 
-- Builder AI chat: `POST /builder-chat` (retired July 10, 2026, now returns HTTP 410)
-- Builder async job polling: `GET /builder-chat/jobs/:jobId` (only used by the retired chat flow)
-- Chat sessions: `GET /builder-chat/sessions` reads saved legacy chats as an archive; the save endpoint (`POST /builder-chat/sessions`) returns HTTP 410
-- Strategy drafts: `POST/GET/DELETE /strategies/drafts`
-- Strategy publishing and versioning: `POST /strategies`, `POST /strategies/:id/versions`
-- Backtests: `POST /backtests`, `GET /backtests/:id`, `GET /backtests`
-- Factor-ledger research:
-  - `POST /research/factors/generate-preview`
-  - `POST /research/factors`
-  - `POST /research/factors/evaluate`
-  - `POST /research/factors/evaluate-all`
-  - `GET /research/jobs/:jobId`
-  - `GET /research/:id`
-- Market insights: `GET /market-insights`, `POST /market-insights/generate`
+| Capability | HYPE | POLY |
+|------------|------|------|
+| Local Builder graph types and command replay | Supported | Supported |
+| One-to-one Builder chat | Retired; use Agent Society in the product UI | Compatibility route exists, with POLY-specific behavior |
+| Drafts and common strategy-management paths | Supported | Not exposed on the HYPE-compatible paths used by this client |
+| Backtests and job polling | Supported | Supported with exchange-specific payload requirements |
+| Factor-ledger research | Supported | Partial route parity |
+| Market insights | Supported | No HYPE-compatible route |
 
-## Builder Graphs
+The local graph helpers do not call a remote service. `apply_builder_commands()`
+can materialize command deltas, and graph JSON can then be used with a
+supported backtest or strategy workflow.
 
-The retired Builder AI chat returned command deltas, not a fully materialized graph. This package still includes a Python port of the production graph mutation logic (`apply_builder_commands()`), so you can:
+## Current Python Surface
 
-- replay archived Builder command deltas against a graph
-- save the resulting graph
-- backtest or publish the graph later
-
-You can also fetch an existing graph with `get_strategy_graph()` or through a saved draft (`get_draft()`), then backtest or republish it with `create_backtest()`, `create_strategy()`, or `publish_strategy_version()`.
+- `BanzhuanClient` for supported drafts, strategies, backtests, research, and
+  market insights
+- `BuilderGraph` types and `apply_builder_commands()` for local graph handling
+- `build_perps_risk_config()` for perps-oriented HYPE payloads
+- polling helpers for asynchronous backtest and research jobs
 
 ## CLI
 
-The CLI is intentionally small and focused on session-token workflows.
+The CLI provides `auth`, `backtest`, and `publish` command families. Its
+backtest and publish payloads are perps-oriented and should be treated as
+HYPE-first. The `builder-chat` command remains in the package for
+compatibility, but the HYPE one-to-one flow is retired and it is not the
+current onboarding path.
 
-### Save a session token
+## Compatibility Notes
 
-```bash
-banzhuan auth set <your-session-token>
+- Agent Society group chat in the product UI replaces the retired HYPE
+  one-to-one Builder workflow.
+- Legacy HYPE chat-session reads remain archival; saving new legacy sessions
+  is not a current workflow.
+- POLY exposes a compatibility Builder route and selected common API paths,
+  but it does not mirror every HYPE strategy or market-insight endpoint.
+- Alpha has no `BanzhuanClient` exchange mapping.
+- `edge` and `afp` remain accepted values only to avoid breaking older callers.
+
+## Package Structure
+
+```text
+src/banzhuan/
+  client.py       HTTP client and polling helpers
+  graph.py        Builder graph types and local command replay
+  cli.py          Command-line interface
+  __init__.py     Public exports and package version
+pyproject.toml    Package metadata
 ```
-
-### Run a Builder prompt against a graph file (retired)
-
-The `builder-chat` command depends on the retired Builder AI chat API and now fails with HTTP 410 (retired July 10, 2026). It is kept here for reference only.
-
-```bash
-banzhuan builder-chat \
-  --exchange hype \
-  --message "Create a funding mean-reversion strategy for HYPE-USD" \
-  --graph-out graph.json
-```
-
-### Backtest a graph file
-
-```bash
-banzhuan backtest \
-  --exchange hype \
-  --graph graph.json \
-  --market HYPE-USD \
-  --days 14 \
-  --capital 10000 \
-  --out backtest.json
-```
-
-### Publish a Builder graph
-
-```bash
-banzhuan publish \
-  --exchange hype \
-  --graph graph.json \
-  --name "ETH Trend" \
-  --market ETH-USD \
-  --visibility private
-```
-
-## Notes
-
-- A valid session token authenticates you as the wallet that created it.
-- Credits and invite-key checks still apply on production endpoints.
-- Research uses the current factor-ledger workflow. The legacy sweep-style `/research/run` path is not used.
-- Builder AI Chat was retired on July 10, 2026: `builder_chat()` and `save_chat_session()` now receive HTTP 410. The replacement is the Agent Society group chat on the website. `apply_builder_result()` and `apply_builder_commands()` remain available for replaying archived Builder command deltas.
-- Backtest and strategy publishing methods use perps-specific formats on HYPE. For POLY, use the Python API with exchange-specific payloads or the web UI.
-- The `edge` and `afp` exchange values point at platforms that were deactivated on July 5, 2026. The SDK still accepts them for compatibility, but their APIs no longer serve SDK requests (EDGE returns a static 503).
-- Live session deployment can still be completed in the web app.
 
 ## License
 
