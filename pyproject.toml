@@ -13,7 +13,7 @@ authors = [{ name = "BanZhuan.AI" }]
 dependencies = [
   "requests>=2.31.0,<3",
 ]
-keywords = ["banzhuan", "trading", "builder", "ai", "hyperliquid", "edgex", "polymarket", "afp"]
+keywords = ["banzhuan", "trading", "builder", "ai", "hyperliquid", "polymarket"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

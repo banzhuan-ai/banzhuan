@@ -13,9 +13,7 @@ from .graph import BuilderGraph, apply_builder_commands
 
 DEFAULT_BASE_URLS: Dict[str, str] = {
     "hype": "https://hype.banzhuan.ai/api/executor",
-    "edge": "https://edge.banzhuan.ai/api/executor",
     "poly": "https://poly.banzhuan.ai/api/executor",
-    "afp": "https://afp.banzhuan.ai/api",
 }
 
 CREDENTIALS_DIR = Path.home() / ".banzhuan"

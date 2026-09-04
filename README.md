@@ -11,8 +11,8 @@ agent workflows.
 | HYPE | Active | Primary target for drafts, strategy management, backtests, factor-ledger research, and market insights |
 | POLY | Active | Partial common-client support: backtests and most factor-ledger operations are available; Builder and strategy behavior is exchange-specific |
 | Alpha | Active | Not an SDK exchange target; Agent Society is operated through the product UI |
-| EDGE | Deactivated July 5, 2026 | Identifier retained for compatibility only; no current production API support |
-| AFP | Deactivated July 5, 2026 | Identifier retained for compatibility only; no current production API support |
+| EDGE | Retired | Identifier removed September 4, 2026 when the host was terminated |
+| AFP | Retired | Identifier removed September 4, 2026 when the host was terminated |
 
 An accepted exchange name does not guarantee feature parity. Use the
 capability matrix below before building an integration.
@@ -94,7 +94,7 @@ current onboarding path.
 - POLY exposes a compatibility Builder route and selected common API paths,
   but it does not mirror every HYPE strategy or market-insight endpoint.
 - Alpha has no `BanzhuanClient` exchange mapping.
-- `edge` and `afp` remain accepted values only to avoid breaking older callers.
+- `edge` and `afp` were removed on September 4, 2026 when their hosts were terminated; only `hype` and `poly` are accepted.
 
 ## Package Structure
 
