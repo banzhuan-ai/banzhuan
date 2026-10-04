@@ -135,6 +135,11 @@ class BanzhuanClient:
             )
 
         self.base_url = resolve_base_url(exchange=exchange, base_url=base_url)
+        self._backtest_read_path = (
+            "/observations/backtests"
+            if (exchange or "hype").strip().lower() == "poly"
+            else "/backtests"
+        )
         self.session_token = resolved_token
         self.timeout = float(timeout)
         self.session = session or requests.Session()
@@ -474,13 +479,15 @@ class BanzhuanClient:
         return self._request("POST", "/backtests", json_body=payload, timeout=max(self.timeout, 180.0))
 
     def get_backtest(self, job_id: str, *, include: Optional[str] = None) -> Any:
+        """Read a backtest through the selected venue's supported owner API."""
         params: Dict[str, Any] = {}
         if include:
             params["include"] = include
-        return self._request("GET", f"/backtests/{job_id}", params=params)
+        return self._request("GET", f"{self._backtest_read_path}/{job_id}", params=params)
 
     def list_backtests(self, *, limit: int = 20) -> Any:
-        return self._request("GET", "/backtests", params={"limit": int(limit)})
+        """Return the venue's native list response and pagination semantics."""
+        return self._request("GET", self._backtest_read_path, params={"limit": int(limit)})
 
     def cancel_backtest(self, job_id: str) -> Any:
         return self._request("DELETE", f"/backtests/{job_id}")
