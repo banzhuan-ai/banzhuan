@@ -1,112 +1,93 @@
-# banzhuan
+# banzhuan Python SDK
 
-Python SDK and CLI for current BanZhuan.AI backtest, research, strategy, and
-market-insight APIs. The package is designed for production automation and
-agent workflows.
+SDK and CLI source for BanZhuan.AI. The supported production integration here is
+owner observation of autonomous work on Hyperliquid and Polymarket. Only `hype`
+and `poly` are exchange targets. Agent Society is the central headless service;
+Alpha, EDGE and AFP are not current SDK targets.
 
-## Production Target Matrix
+This README describes source `bd01901b44d61c950c188ad2a84f09b17ad9b2c8`, package
+version `0.2.0`. It does not assert that a package index or every deployment already
+contains this revision. Install a reviewed source release at its exact pin; do not
+infer source identity from the package version alone. Python 3.9 or newer is required.
 
-| Target | Production state | SDK status |
-|--------|------------------|------------|
-| HYPE | Active | Primary target for drafts, strategy management, backtests, factor-ledger research, and market insights |
-| POLY | Active | Partial common-client support: backtests and most factor-ledger operations are available; Builder and strategy behavior is exchange-specific |
-| Alpha | Active | Not an SDK exchange target; Agent Society is operated through the product UI |
-| EDGE | Retired | Identifier removed September 4, 2026 when the host was terminated |
-| AFP | Retired | Identifier removed September 4, 2026 when the host was terminated |
+## Authentication and read example
 
-An accepted exchange name does not guarantee feature parity. Use the
-capability matrix below before building an integration.
+`BanzhuanClient` accepts an existing central Credits session through its
+`session_token` argument, `BANZHUAN_SESSION_TOKEN`, or the CLI credential store.
+The SDK performs no wallet signing or passkey ceremony. Obtain authentication
+through the approved central Credits procedure; owner setup/signing uses reviewed
+terminal procedures. Never put a token in a committed example, shell history or log.
 
-## Installation
-
-```bash
-pip install banzhuan
-```
-
-## Authentication
-
-1. Open [https://banzhuan.ai/credits](https://banzhuan.ai/credits)
-2. Connect your wallet and sign in
-3. Copy your session token from the "Session Token (CLI)" card
-4. Pass that token to the SDK or store it with the CLI
-
-The package does not perform wallet signing. It assumes you already have a valid session token.
-
-```bash
-banzhuan auth set <your-session-token>
-```
-
-Or use an environment variable:
-
-```bash
-export BANZHUAN_SESSION_TOKEN=<your-session-token>
-```
-
-## Quick Start
-
-After configuring the production session token as described above:
+With `BANZHUAN_SESSION_TOKEN` already supplied privately:
 
 ```python
 from banzhuan import BanzhuanClient
 
-client = BanzhuanClient(exchange="hype")
-result = client.list_backtests(limit=5)
-print(result)
+client = BanzhuanClient(exchange="poly")
+page = client.list_backtests()
 ```
 
-## Capability Matrix
+## Production read contract
 
-| Capability | HYPE | POLY |
-|------------|------|------|
-| Local Builder graph types and command replay | Supported | Supported |
-| One-to-one Builder chat | Retired; use Agent Society in the product UI | Compatibility route exists, with POLY-specific behavior |
-| Drafts and common strategy-management paths | Supported | Not exposed on the HYPE-compatible paths used by this client |
-| Backtests and job polling | Supported | Supported with exchange-specific payload requirements |
-| Factor-ledger research | Supported | Partial route parity |
-| Market insights | Supported | No HYPE-compatible route |
+| Methods | Hyperliquid | Polymarket |
+|---|---|---|
+| `list_backtests`, `get_backtest` | `/backtests`, `/backtests/:id` | `/observations/backtests`, `/observations/backtests/:id` |
+| `list_research_jobs`, `get_research_job` | Shared `/research/jobs` routes | Shared owner read routes |
+| `list_research_runs`, `get_research_run` | Shared `/research` routes | Shared owner read routes |
+| `get_factor` | Stored factor details | Shared factor-detail route |
+| `list_factors` | `/research/:id` is registered first and shadows the list path | The shared table preserves that route order; do not rely on this list call |
+| `list_drafts`, `get_draft` | Stored drafts are observations; mutations retired | Draft list is empty; no shared draft-detail route is mounted |
+| Strategy/graph reads | Owner-visible stored publications/graphs | Shared reads over prediction-market publications/graphs |
+| `get_market_insights` | Stored market insights | Shared read contract with prediction-market data |
 
-The local graph helpers do not call a remote service. `apply_builder_commands()`
-can materialize command deltas, and graph JSON can then be used with a
-supported backtest or strategy workflow.
+The table describes the inspected client/server source contract, not a new live
+API certification. Responses remain venue-native. Polymarket observation backtest lists return a
+`success/domain/data` envelope and fixed limit 50; the supplied SDK `limit` does not
+turn that into Hyperliquid pagination. Its detail is an observation envelope, and
+`include` does not select Hyperliquid result views. `wait_for_backtest` expects a
+top-level `status`, so it must not be used with Polymarket's envelope. Use the
+observation methods and inspect their native state. The client has no dedicated
+method for Polymarket's paged backtest artifacts, account capital operations or
+signed Society invocation transport.
 
-## Current Python Surface
+Private stored reads require a valid session and ownership; public strategy
+metadata follows its server visibility rules. Read-only passkey sessions are
+restricted to their server-approved observations; a method's presence does not
+promise passkey access to every historical route. Missing/unauthorized resources
+remain errors. The SDK sends `x-banzhuan-session` and raises typed authentication,
+Credits and rate-limit errors or `BanzhuanAPIError` for HTTP failures.
 
-- `BanzhuanClient` for supported drafts, strategies, backtests, research, and
-  market insights
-- `BuilderGraph` types and `apply_builder_commands()` for local graph handling
-- `build_perps_risk_config()` for perps-oriented HYPE payloads
-- polling helpers for asynchronous backtest and research jobs
+## Manual mutations are disabled
 
-## CLI
+The package still contains methods for Builder chat, draft writes, strategy
+publication/activation/deletion, backtest creation/cancellation/purge, factor
+creation/evaluation and insight generation. These do not authorize a wallet
+session to operate the production Auto-only platform. The executors refuse those
+discretionary mutations; signed Society tools perform autonomous work. Operator
+routes and owner constraint/funding capabilities have separate authority that
+this SDK does not provide. There is no supported legacy mutation workflow.
 
-The CLI provides `auth`, `backtest`, and `publish` command families. Its
-backtest and publish payloads are perps-oriented and should be treated as
-HYPE-first. The `builder-chat` command remains in the package for
-compatibility, but the HYPE one-to-one flow is retired and it is not the
-current onboarding path.
+The CLI exposes `auth`, `builder-chat`, `backtest` and `publish`; the three work
+commands are not current production wallet workflows. `auth set/show/clear` manage
+local credentials; `auth show` prints the stored token and must not be captured in
+shared logs. No read-only CLI family is supplied in this revision.
 
-## Compatibility Notes
+`BuilderGraph`, `apply_builder_commands()` and `build_perps_risk_config()` are local
+payload helpers. The perps helper does not make leverage/funding applicable to
+Polymarket and creates no remote authority. Local graph replay is not live execution.
 
-- Agent Society group chat in the product UI replaces the retired HYPE
-  one-to-one Builder workflow.
-- Legacy HYPE chat-session reads remain archival; saving new legacy sessions
-  is not a current workflow.
-- POLY exposes a compatibility Builder route and selected common API paths,
-  but it does not mirror every HYPE strategy or market-insight endpoint.
-- Alpha has no `BanzhuanClient` exchange mapping.
-- `edge` and `afp` were removed on September 4, 2026 when their hosts were terminated; only `hype` and `poly` are accepted.
+## Source and verification
 
-## Package Structure
+`src/banzhuan/client.py` contains HTTP methods and polling helpers; `graph.py`
+contains graph types/replay; `cli.py` contains the CLI; `__init__.py` exports the
+public surface. `pyproject.toml` defines the package and `tests/` the focused checks.
+Application builds/tests run only in Docker on the authorized EC2 host. Reuse the
+accepted observation-read evidence at its pinned scope; a docs release does not
+certify new live orders, strategy returns or package publication.
 
-```text
-src/banzhuan/
-  client.py       HTTP client and polling helpers
-  graph.py        Builder graph types and local command replay
-  cli.py          Command-line interface
-  __init__.py     Public exports and package version
-pyproject.toml    Package metadata
-```
+See the [platform operations](https://github.com/banzhuan-ai/plans/blob/main/README.md),
+[Hyperliquid](https://github.com/banzhuan-ai/plans/blob/main/DEPLOY_HYPE.md) and
+[Polymarket](https://github.com/banzhuan-ai/plans/blob/main/DEPLOY_POLY.md) runbooks
+for the actual served component pins and contracts.
 
-## License
-
-MIT
+MIT.
