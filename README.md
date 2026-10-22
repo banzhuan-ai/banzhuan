@@ -25,26 +25,19 @@ pip install banzhuan
 
 ## Authentication
 
-1. Open [https://banzhuan.ai/credits](https://banzhuan.ai/credits)
-2. Connect your wallet and sign in
-3. Copy your session token from the "Session Token (CLI)" card
-4. Pass that token to the SDK or store it with the CLI
+Sign in at [Yototec Credits](https://credits.yototec.com/), activate BanZhuan.AI access, and reveal your API key.
 
-The package does not perform wallet signing. It assumes you already have a valid session token.
+The API key authenticates requests. Actual wallet signatures remain required for covenant and capital actions.
 
 ```bash
-banzhuan auth set <your-session-token>
+banzhuan auth set
 ```
 
-Or use an environment variable:
-
-```bash
-export BANZHUAN_SESSION_TOKEN=<your-session-token>
-```
+The command reads the key without echo and stores it in an owner-only file. Programmatic clients accept `api_key=...` or the `YOTOTEC_API_KEY` environment variable. Never place a real key in shell history.
 
 ## Quick Start
 
-After configuring the production session token as described above:
+After configuring the API key as described above:
 
 ```python
 from banzhuan import BanzhuanClient

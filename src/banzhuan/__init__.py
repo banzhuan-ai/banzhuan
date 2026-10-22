@@ -6,10 +6,10 @@ from .client import (
     CreditsRequiredError,
     RateLimitError,
     build_perps_risk_config,
-    clear_stored_session_token,
-    load_stored_session_token,
+    clear_stored_api_key,
+    load_stored_api_key,
     resolve_base_url,
-    save_stored_session_token,
+    save_stored_api_key,
 )
 from .graph import BuilderCommand, BuilderConnection, BuilderGraph, BuilderGraphBlock, apply_builder_commands
 
@@ -26,10 +26,10 @@ __all__ = [
     "RateLimitError",
     "apply_builder_commands",
     "build_perps_risk_config",
-    "clear_stored_session_token",
-    "load_stored_session_token",
+    "clear_stored_api_key",
+    "load_stored_api_key",
     "resolve_base_url",
-    "save_stored_session_token",
+    "save_stored_api_key",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

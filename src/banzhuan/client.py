@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import stat
+import tempfile
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Any, Dict, Mapping, Optional, Sequence, Union
 
 import requests
@@ -17,7 +21,7 @@ DEFAULT_BASE_URLS: Dict[str, str] = {
 }
 
 CREDENTIALS_DIR = Path.home() / ".banzhuan"
-CREDENTIALS_FILE = CREDENTIALS_DIR / "credentials.json"
+CREDENTIALS_FILE = CREDENTIALS_DIR / "api-key.json"
 
 
 def resolve_base_url(
@@ -34,39 +38,51 @@ def resolve_base_url(
     return DEFAULT_BASE_URLS[normalized]
 
 
-def _load_credentials() -> Dict[str, Any]:
+def _validate_api_key(value: str) -> str:
+    clean = str(value or "").strip()
+    if not re.fullmatch(r"ytk_[A-Za-z0-9_-]+", clean):
+        raise ValueError("A Yototec API key beginning with ytk_ is required")
+    return clean
+
+
+def load_stored_api_key() -> str:
     try:
-        if CREDENTIALS_FILE.exists():
-            return json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        pass
-    return {}
+        descriptor = os.open(CREDENTIALS_FILE, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return ""
+    with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError("API key file must be an owner-only regular file")
+        if info.st_size > 8192:
+            raise ValueError("API key file is too large")
+        credentials = json.load(stream)
+    return _validate_api_key(credentials.get("api_key", ""))
 
 
-def load_stored_session_token() -> str:
-    creds = _load_credentials()
-    return str(creds.get("session_token") or "")
-
-
-def save_stored_session_token(token: str) -> Path:
-    clean = str(token or "").strip()
-    if not clean:
-        raise ValueError("Session token cannot be empty")
-    CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_FILE.write_text(
-        json.dumps({"session_token": clean}, indent=2) + "\n",
-        encoding="utf-8",
-    )
+def save_stored_api_key(api_key: str) -> Path:
+    clean = _validate_api_key(api_key)
+    CREDENTIALS_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = CREDENTIALS_DIR.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        raise ValueError("Credential directory must be an owner-owned directory")
+    CREDENTIALS_DIR.chmod(0o700)
+    descriptor, temporary = tempfile.mkstemp(prefix=".api-key-", dir=CREDENTIALS_DIR)
     try:
-        CREDENTIALS_FILE.chmod(0o600)
-    except Exception:
-        pass
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump({"api_key": clean}, stream)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, CREDENTIALS_FILE)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
     return CREDENTIALS_FILE
 
 
-def clear_stored_session_token() -> None:
-    if CREDENTIALS_FILE.exists():
-        CREDENTIALS_FILE.unlink()
+def clear_stored_api_key() -> None:
+    CREDENTIALS_FILE.unlink(missing_ok=True)
 
 
 def build_perps_risk_config(
@@ -117,31 +133,31 @@ class BanzhuanClient:
     def __init__(
         self,
         *,
-        session_token: Optional[str] = None,
+        api_key: Optional[str] = None,
         exchange: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
         session: Optional[requests.Session] = None,
     ) -> None:
         resolved_token = (
-            str(session_token or "").strip()
-            or str(os.environ.get("BANZHUAN_SESSION_TOKEN") or "").strip()
-            or load_stored_session_token()
+            str(api_key or "").strip()
+            or str(os.environ.get("YOTOTEC_API_KEY") or "").strip()
+            or load_stored_api_key()
         )
         if not resolved_token:
             raise ValueError(
-                "Session token required. Authenticate at https://banzhuan.ai/credits and pass "
-                "session_token=..., set BANZHUAN_SESSION_TOKEN, or run `banzhuan auth set ...`."
+                "API key required. Authenticate at https://credits.yototec.com/ and pass "
+                "api_key=..., set YOTOTEC_API_KEY, or run `banzhuan auth set`."
             )
 
         self.base_url = resolve_base_url(exchange=exchange, base_url=base_url)
-        self.session_token = resolved_token
+        self.api_key = _validate_api_key(resolved_token)
         self.timeout = float(timeout)
         self.session = session or requests.Session()
         self.session.headers.update(
             {
                 "Accept": "application/json",
-                "User-Agent": "banzhuan-python-sdk/0.2.0",
+                "User-Agent": "banzhuan-python-sdk/0.3.0",
             }
         )
 
@@ -163,13 +179,16 @@ class BanzhuanClient:
         timeout: Optional[float] = None,
     ) -> Any:
         url = path if path.startswith("http://") or path.startswith("https://") else f"{self.base_url}/{path.lstrip('/')}"
+        if urlsplit(url)[:2] != urlsplit(self.base_url)[:2]:
+            raise ValueError("Authenticated requests must stay on the configured executor origin")
         response = self.session.request(
             method=method.upper(),
             url=url,
             params=dict(params or {}),
             json=dict(json_body or {}) if json_body is not None else None,
-            headers={"x-banzhuan-session": self.session_token},
+            headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=timeout or self.timeout,
+            allow_redirects=False,
         )
 
         content_type = response.headers.get("content-type", "")
@@ -204,15 +223,6 @@ class BanzhuanClient:
             current_graph,
             result.get("commands") or [],
         )
-
-    def list_available_api_keys(self) -> Any:
-        return self._request("GET", "/api-keys/available")
-
-    def claim_api_key(self, key: str) -> Any:
-        return self._request("POST", "/api-keys/claim", json_body={"key": key})
-
-    def get_my_api_key(self) -> Any:
-        return self._request("GET", "/api-keys/mine")
 
     def builder_chat(
         self,
