@@ -29,7 +29,12 @@ def resolve_base_url(
     base_url: Optional[str] = None,
 ) -> str:
     if base_url:
-        return str(base_url).rstrip("/")
+        endpoint = str(base_url).rstrip("/")
+        parsed = urlsplit(endpoint)
+        loopback = parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        if (parsed.scheme != "https" and not (parsed.scheme == "http" and loopback)) or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("Executor URL requires HTTPS without embedded credentials, query, or fragment")
+        return endpoint
 
     normalized = (exchange or "hype").strip().lower()
     if normalized not in DEFAULT_BASE_URLS:
@@ -200,7 +205,7 @@ class BanzhuanClient:
         else:
             payload = {"raw": response.text}
 
-        if response.status_code >= 400:
+        if response.status_code >= 300:
             message = f"Request failed with HTTP {response.status_code}"
             if isinstance(payload, dict):
                 message = str(payload.get("error") or payload.get("hint") or message)
