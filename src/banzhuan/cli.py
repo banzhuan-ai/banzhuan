@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from getpass import getpass
 import json
 import sys
 from pathlib import Path
@@ -9,9 +10,9 @@ from typing import Any, Dict, List, Optional
 from .client import (
     BanzhuanClient,
     build_perps_risk_config,
-    clear_stored_session_token,
-    load_stored_session_token,
-    save_stored_session_token,
+    clear_stored_api_key,
+    load_stored_api_key,
+    save_stored_api_key,
 )
 
 
@@ -55,7 +56,7 @@ def _load_messages(path: Optional[str]) -> List[Dict[str, Any]]:
 def _resolve_client(args: argparse.Namespace) -> BanzhuanClient:
     try:
         return BanzhuanClient(
-            session_token=getattr(args, "session_token", None),
+            api_key=getattr(args, "api_key", None),
             exchange=getattr(args, "exchange", None),
             base_url=getattr(args, "base_url", None),
         )
@@ -63,25 +64,18 @@ def _resolve_client(args: argparse.Namespace) -> BanzhuanClient:
         _die(str(exc))
 
 
-def cmd_auth_set(args: argparse.Namespace) -> None:
-    token = (args.token or "").strip()
-    if not token:
-        _die("Session token cannot be empty")
-    path = save_stored_session_token(token)
-    print(f"Session token saved to {path}")
+def cmd_auth_set(_args: argparse.Namespace) -> None:
+    path = save_stored_api_key(getpass("Yototec API key: "))
+    print(f"API key saved to {path}")
 
 
 def cmd_auth_show(_args: argparse.Namespace) -> None:
-    token = load_stored_session_token()
-    if not token:
-        print("No stored session token.")
-        return
-    print(f"{token[:8]}...{token[-8:]}")
+    print("API key configured." if load_stored_api_key() else "No stored API key.")
 
 
 def cmd_auth_clear(_args: argparse.Namespace) -> None:
-    clear_stored_session_token()
-    print("Stored session token cleared.")
+    clear_stored_api_key()
+    print("Stored API key cleared.")
 
 
 def cmd_builder_chat(args: argparse.Namespace) -> None:
@@ -232,23 +226,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="banzhuan")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    auth = sub.add_parser("auth", help="Manage the stored session token")
+    auth = sub.add_parser("auth", help="Manage the stored API key")
     auth_sub = auth.add_subparsers(dest="auth_command", required=True)
 
-    auth_set = auth_sub.add_parser("set", help="Store a session token")
-    auth_set.add_argument("token", help="Session token copied from banzhuan.ai/credits")
+    auth_set = auth_sub.add_parser("set", help="Store a Yototec API key with hidden input")
     auth_set.set_defaults(func=cmd_auth_set)
 
-    auth_show = auth_sub.add_parser("show", help="Show the stored session token")
+    auth_show = auth_sub.add_parser("show", help="Show the stored API key")
     auth_show.set_defaults(func=cmd_auth_show)
 
-    auth_clear = auth_sub.add_parser("clear", help="Delete the stored session token")
+    auth_clear = auth_sub.add_parser("clear", help="Delete the stored API key")
     auth_clear.set_defaults(func=cmd_auth_clear)
 
     builder = sub.add_parser("builder-chat", help="Send a Builder AI prompt and update a local graph file")
     builder.add_argument("--exchange", choices=("hype", "poly"), default="hype")
     builder.add_argument("--base-url", help="Override the executor base URL")
-    builder.add_argument("--session-token", help="Override stored or environment session token")
     builder.add_argument("--message", required=True, help="Builder prompt")
     builder.add_argument("--graph-in", help="Existing graph JSON file")
     builder.add_argument("--graph-out", help="Output graph JSON file")
@@ -265,7 +257,6 @@ def build_parser() -> argparse.ArgumentParser:
     backtest = sub.add_parser("backtest", help="Run a backtest against a Builder graph")
     backtest.add_argument("--exchange", choices=("hype", "poly"), default="hype")
     backtest.add_argument("--base-url", help="Override the executor base URL")
-    backtest.add_argument("--session-token", help="Override stored or environment session token")
     backtest.add_argument("--graph", required=True, help="Builder graph JSON file")
     backtest.add_argument("--market", help="Backtest market override")
     backtest.add_argument("--days", type=int, default=14)
@@ -285,7 +276,6 @@ def build_parser() -> argparse.ArgumentParser:
     publish = sub.add_parser("publish", help="Create or update a strategy from a Builder graph")
     publish.add_argument("--exchange", choices=("hype", "poly"), default="hype")
     publish.add_argument("--base-url", help="Override the executor base URL")
-    publish.add_argument("--session-token", help="Override stored or environment session token")
     publish.add_argument("--graph", required=True, help="Builder graph JSON file")
     publish.add_argument("--strategy-id", help="Existing strategy ID to publish a new version")
     publish.add_argument("--name", help="Strategy name when creating a new strategy")
